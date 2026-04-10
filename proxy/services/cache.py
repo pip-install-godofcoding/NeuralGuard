@@ -5,6 +5,7 @@ from typing import Optional
 
 import numpy as np
 import redis.asyncio as aioredis
+from datetime import datetime, timedelta
 
 CACHE_PREFIX = "ng:cache:"
 SIMILARITY_THRESHOLD = 0.78
@@ -12,7 +13,7 @@ TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 _redis_available: bool = True  # Innocent until proven guilty
-
+_memory_cache: list[dict] = []  # Fallback for Windows/hackathon without Redis
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
     va = np.array(a, dtype=np.float32)
@@ -22,11 +23,9 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
         return 0.0
     return float(np.dot(va, vb) / denom)
 
-
 def _get_redis() -> aioredis.Redis:
     """Create a fresh Redis client each time - avoids event loop issues on reload."""
     return aioredis.from_url(REDIS_URL, decode_responses=False)
-
 
 async def init_redis():
     """Called once at startup to verify Redis is reachable."""
@@ -39,8 +38,7 @@ async def init_redis():
         print("[cache] Redis connected OK")
     except Exception as exc:
         _redis_available = False
-        print(f"[cache] Redis unavailable - cache disabled: {exc}")
-
+        print(f"[cache] Redis unavailable - using IN-MEMORY fallback cache instead: {exc}")
 
 async def check_cache(embedding: list[float]) -> Optional[dict]:
     """
@@ -48,14 +46,28 @@ async def check_cache(embedding: list[float]) -> Optional[dict]:
     Returns the cached response dict, or None.
     Fail-open: any error returns None.
     """
+    best_sim = 0.0
+    best_response = None
+
     if not _redis_available:
+        # IN-MEMORY FALLBACK
+        now = datetime.now()
+        for entry in _memory_cache:
+            if now > entry["expires_at"]:
+                continue
+            sim = _cosine_similarity(embedding, entry["embedding"])
+            if sim > best_sim:
+                best_sim = sim
+                best_response = entry["response"]
+                
+        print(f"[cache-fallback] Memory scan. Best similarity: {best_sim:.4f} (threshold: {SIMILARITY_THRESHOLD})")
+        if best_sim >= SIMILARITY_THRESHOLD:
+            print("[cache-fallback] HIT!")
+            return best_response
         return None
 
     try:
         r = _get_redis()
-        best_sim = 0.0
-        best_response = None
-
         async for key in r.scan_iter(f"{CACHE_PREFIX}*", count=500):
             raw = await r.get(key)
             if not raw:
@@ -78,10 +90,16 @@ async def check_cache(embedding: list[float]) -> Optional[dict]:
 
     return None
 
-
 async def store_cache(embedding: list[float], response: dict):
     """Store embedding + response in Redis with TTL."""
     if not _redis_available:
+        # IN-MEMORY FALLBACK
+        _memory_cache.append({
+            "embedding": embedding,
+            "response": response,
+            "expires_at": datetime.now() + timedelta(seconds=TTL_SECONDS)
+        })
+        print(f"[cache-fallback] Stored item in memory cache. Size: {len(_memory_cache)}")
         return
 
     try:

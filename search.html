@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuralGuard Search</title>
+  
+  <!-- Modern Inter Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* Global Reset & Base */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #020617 0%, #0f0a2e 50%, #020617 100%);
+      color: #f8fafc;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    /* Background Orbs */
+    .orb-container {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      overflow: hidden; pointer-events: none; z-index: 0;
+    }
+    .orb-1 {
+      position: absolute; top: -20%; left: -10%;
+      width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+      animation: orbFloat1 12s ease-in-out infinite;
+    }
+    .orb-2 {
+      position: absolute; bottom: -20%; right: -10%;
+      width: 500px; height: 500px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%);
+      animation: orbFloat2 15s ease-in-out infinite;
+    }
+    .orb-3 {
+      position: absolute; top: 40%; right: 20%;
+      width: 300px; height: 300px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%);
+      animation: orbFloat1 18s ease-in-out infinite reverse;
+    }
+
+    @keyframes orbFloat1 {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(30px, -40px) scale(1.05); }
+    }
+    @keyframes orbFloat2 {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(-40px, 30px) scale(1.08); }
+    }
+
+    /* Layout Content */
+    .content-wrapper {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 760px;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 15vh 20px 40px;
+      transition: padding-top 0.5s ease;
+    }
+    .content-wrapper.has-result { padding-top: 60px; }
+
+    /* Logo Section */
+    .logo-container { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+    .logo-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 24px rgba(99,102,241,0.4);
+    }
+    .logo-text {
+      font-size: 26px; font-weight: 800; letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #818cf8, #6366f1, #a78bfa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      color: rgba(255,255,255,0.4); font-size: 15px; margin-bottom: 36px;
+      text-align: center; line-height: 1.6; max-width: 420px;
+    }
+
+    /* API Key Config Input */
+    .api-key-container {
+      width: 100%; margin-bottom: 24px;
+      display: flex; gap: 12px; justify-content: center;
+    }
+    .api-key-input {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px; padding: 10px 14px; color: #fff; width: 340px;
+      font-family: inherit; outline: none; transition: all 0.2s;
+    }
+    .api-key-input:focus { border-color: rgba(99,102,241,0.6); }
+    .api-key-container label {
+      color: rgba(255,255,255,0.5); font-size: 13px; align-self: center;
+    }
+
+    /* Search Bar */
+    .search-form { width: 100%; position: relative; }
+    .search-box {
+      position: relative; border-radius: 16px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      transition: all 0.25s ease;
+    }
+    .search-box.focused {
+      border-color: rgba(99,102,241,0.7);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.15), 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .search-textarea {
+      width: 100%; display: block; background: transparent; border: none; outline: none;
+      color: rgba(255,255,255,0.92); font-size: 16px; line-height: 1.6;
+      padding: 18px 60px 18px 20px; resize: none; font-family: inherit;
+    }
+    .search-btn {
+      position: absolute; right: 12px; bottom: 12px;
+      width: 40px; height: 40px; border-radius: 10px; border: none;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.08); transition: all 0.2s ease; cursor: default;
+    }
+    .search-btn.active {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      cursor: pointer; animation: pulseRing 2s infinite;
+    }
+
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
+      70% { box-shadow: 0 0 0 12px rgba(99,102,241,0); }
+      100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loader {
+      width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white; border-radius: 50%;
+      animation: spin 0.7s linear infinite; display: none;
+    }
+    .search-btn svg { display: block; }
+    .search-btn.loading svg { display: none; }
+    .search-btn.loading .loader { display: block; }
+
+    .footer-text {
+      color: rgba(255,255,255,0.2); font-size: 12px; margin-top: 8px; text-align: center;
+    }
+
+    /* Error Message */
+    .error-msg {
+      margin-top: 20px; padding: 14px 18px;
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 12px; color: #fca5a5; font-size: 14px; width: 100%;
+      display: none; animation: fadeSlideUp 0.3s ease;
+    }
+
+    /* Results */
+    .results-panel {
+      width: 100%; max-width: 760px; padding: 0 20px 80px; position: relative; z-index: 1;
+      display: none; animation: fadeSlideUp 0.4s ease;
+    }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .badges-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+    .badge {
+      display: flex; align-items: center; gap: 7px; padding: 8px 14px;
+      border-radius: 999px; font-size: 13px; font-weight: 600;
+      color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .badge.cache-hit { color: #34d399; background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.4); }
+    .badge.routing { color: #fbbf24; background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.35); }
+    .badge-icon { font-size: 16px; }
+
+    .answer-card {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(20px); border-radius: 16px; padding: 24px; margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.35); text-transform: uppercase; margin-bottom: 14px;
+    }
+    .answer-text { color: rgba(255,255,255,0.88); font-size: 15px; line-height: 1.75; white-space: pre-wrap; }
+
+    .trust-card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(20px); border-radius: 16px; padding: 24px;
+      display: flex; align-items: center; gap: 28px;
+    }
+    
+    /* Trust Gauge SVG */
+    .gauge-wrapper { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .gauge-svg { transform: rotate(-90deg); width: 100px; height: 100px; }
+    .gauge-bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 8; }
+    .gauge-value {
+      fill: none; stroke-width: 8; stroke-linecap: round;
+      stroke-dasharray: 251.2; stroke-dashoffset: 251.2;
+      transition: stroke-dashoffset 1s ease-out, stroke 0.3s ease;
+    }
+    .gauge-text-container { margin-top: -72px; text-align: center; position: relative; }
+    .gauge-number { font-size: 22px; font-weight: 700; }
+    .gauge-sub { font-size: 11px; color: rgba(255,255,255,0.4); display: block; }
+    .gauge-label {
+      margin-top: 36px; font-size: 11px; color: rgba(255,255,255,0.5);
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+
+    .trust-info-title { font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.85); margin-bottom: 6px; }
+    .trust-info-desc { margin: 0; font-size: 13px; color: rgba(255,255,255,0.35); line-height: 1.6; }
+
+    .new-search-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.5); padding: 10px 24px; border-radius: 999px;
+      font-size: 13px; cursor: pointer; font-family: inherit; transition: all 0.2s ease;
+      margin-top: 28px;
+    }
+    .new-search-btn:hover { border-color: rgba(99,102,241,0.5); color: rgba(255,255,255,0.8); }
+    
+  </style>
+</head>
+<body>
+
+  <!-- Background Orbs -->
+  <div class="orb-container">
+    <div class="orb-1"></div>
+    <div class="orb-2"></div>
+    <div class="orb-3"></div>
+  </div>
+
+  <div class="content-wrapper" id="headerWrapper">
+    <!-- API Key Config (Since no backend, must be passed client side) -->
+    <div class="api-key-container">
+      <label for="apiKey">NeuralGuard API Key</label>
+      <input type="password" id="apiKey" class="api-key-input" placeholder="ng-xxxxxxxxxxxxx" value="ng-9d10ff8693d54157b280adca8d1c6f21" />
+    </div>
+
+    <!-- Logo -->
+    <div class="logo-container">
+      <div class="logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="logo-text">NeuralGuard</span>
+    </div>
+    
+    <p class="subtitle" id="subtitle">
+      Intelligent LLM proxy with semantic caching, smart routing & trust scoring
+    </p>
+
+    <!-- Search Form -->
+    <div class="search-form">
+      <div class="search-box" id="searchBox">
+        <textarea id="promptInput" class="search-textarea" rows="3" placeholder="Ask anything… (Enter to search, Shift+Enter for new line)"></textarea>
+        <button id="submitBtn" class="search-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12h14M12 5l7 7-7 7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="loader"></div>
+        </button>
+      </div>
+      <p class="footer-text">Powered by NeuralGuard Proxy · HTML Edition</p>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <!-- Results Panel -->
+  <div class="results-panel" id="resultsPanel">
+    
+    <div class="badges-row" id="badgesContainer"></div>
+
+    <div class="answer-card">
+      <div class="card-title">Answer</div>
+      <div class="answer-text" id="answerText"></div>
+    </div>
+
+    <div class="trust-card">
+      <div class="gauge-wrapper">
+        <svg class="gauge-svg" viewBox="0 0 100 100">
+          <circle class="gauge-bg" cx="50" cy="50" r="40"></circle>
+          <circle id="gaugeFill" class="gauge-value" cx="50" cy="50" r="40" stroke="#475569"></circle>
+        </svg>
+        <div class="gauge-text-container">
+          <span class="gauge-number" id="gaugeNumber" style="color: #475569;">—</span>
+          <span class="gauge-sub" id="gaugeSub" style="display:none;">/ 100</span>
+        </div>
+        <div class="gauge-label">Trust Score</div>
+      </div>
+      <div>
+        <div class="trust-info-title" id="trustTitle">Trust score pending…</div>
+        <p class="trust-info-desc" id="trustDesc">
+          The trust engine scores responses asynchronously. The score will appear on your next identical query (served from cache).
+        </p>
+      </div>
+    </div>
+
+    <div style="text-align: center;">
+      <button class="new-search-btn" id="newSearchBtn">← New Search</button>
+    </div>
+
+  </div>
+
+  <script>
+    const PROXY_URL = "http://localhost:8000";
+
+    const promptInput = document.getElementById('promptInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const searchBox = document.getElementById('searchBox');
+    const errorMsg = document.getElementById('errorMsg');
+    const resultsPanel = document.getElementById('resultsPanel');
+    const headerWrapper = document.getElementById('headerWrapper');
+    const subtitle = document.getElementById('subtitle');
+    const apiKeyInput = document.getElementById('apiKey');
+
+    // Focus state styling
+    promptInput.addEventListener('focus', () => searchBox.classList.add('focused'));
+    promptInput.addEventListener('blur', () => searchBox.classList.remove('focused'));
+
+    // Enable/disable submit button based on input
+    promptInput.addEventListener('input', () => {
+      if(promptInput.value.trim().length > 0) {
+        submitBtn.classList.add('active');
+      } else {
+        submitBtn.classList.remove('active');
+      }
+    });
+
+    // Handle Enter key
+    promptInput.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if(promptInput.value.trim().length > 0) {
+          executeSearch();
+        }
+      }
+    });
+
+    submitBtn.addEventListener('click', () => {
+      if(promptInput.value.trim().length > 0 && !submitBtn.classList.contains('loading')) {
+        executeSearch();
+      }
+    });
+
+    document.getElementById('newSearchBtn').addEventListener('click', () => {
+      resultsPanel.style.display = 'none';
+      headerWrapper.classList.remove('has-result');
+      subtitle.style.display = 'block';
+      promptInput.value = '';
+      submitBtn.classList.remove('active');
+      setTimeout(() => promptInput.focus(), 100);
+    });
+
+    async function executeSearch() {
+      const prompt = promptInput.value.trim();
+      const apiKey = apiKeyInput.value.trim();
+
+      if(!apiKey) {
+        errorMsg.textContent = '⚠ Please enter your NeuralGuard API Key.';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      errorMsg.style.display = 'none';
+      submitBtn.classList.add('loading');
+      promptInput.disabled = true;
+
+      const startTime = Date.now();
+
+      try {
+        const res = await fetch(`${PROXY_URL}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "user", content: prompt }],
+            stream: false
+          })
+        });
+
+        const latencyMs = Date.now() - startTime;
+        
+        if(!res.ok) {
+          const txt = await res.text();
+          throw new Error(`Proxy error ${res.status}: ${txt}`);
+        }
+
+        const data = await res.json();
+        
+        const answer = data?.choices?.[0]?.message?.content ?? "(No response from model)";
+        const modelRequested = "llama-3.3-70b-versatile";
+        const modelUsed = data?.model ?? modelRequested;
+        const cacheHit = data?.cache_hit ?? false;
+        const trustScore = data?.trust_score ?? null;
+        const tokenUsage = data?.usage?.total_tokens ?? 0;
+
+        renderResults(answer, modelRequested, modelUsed, cacheHit, trustScore, latencyMs, tokenUsage);
+        
+      } catch (err) {
+        errorMsg.textContent = `⚠ ${err.message}`;
+        errorMsg.style.display = 'block';
+      } finally {
+        submitBtn.classList.remove('loading');
+        promptInput.disabled = false;
+      }
+    }
+
+    function renderResults(answer, requested, used, cacheHit, trustScore, latencyMs, tokens) {
+      document.getElementById('answerText').textContent = answer;
+
+      const badgesContainer = document.getElementById('badgesContainer');
+      badgesContainer.innerHTML = '';
+
+      // Cache Hit Badge
+      const cacheBadge = document.createElement('div');
+      cacheBadge.className = `badge ${cacheHit ? 'cache-hit' : ''}`;
+      cacheBadge.innerHTML = `<span class="badge-icon">${cacheHit ? '⚡' : '🔮'}</span> ${cacheHit ? 'Served from Cache' : 'Fresh LLM Call'}`;
+      badgesContainer.appendChild(cacheBadge);
+
+      // Latency Badge
+      const latencyBadge = document.createElement('div');
+      latencyBadge.className = 'badge';
+      latencyBadge.innerHTML = `<span class="badge-icon">⏱</span> ${latencyMs}ms`;
+      badgesContainer.appendChild(latencyBadge);
+
+      // Tokens Badge
+      if(tokens > 0) {
+        const tokenBadge = document.createElement('div');
+        tokenBadge.className = 'badge';
+        tokenBadge.innerHTML = `<span class="badge-icon">🎯</span> ${tokens} tokens`;
+        badgesContainer.appendChild(tokenBadge);
+      }
+
+      // Routing Badge
+      const routingDowngraded = used !== requested;
+      const routingBadge = document.createElement('div');
+      routingBadge.className = `badge ${routingDowngraded ? 'routing' : ''}`;
+      routingBadge.innerHTML = `<span class="badge-icon">🔀</span>`;
+      if(routingDowngraded) {
+        routingBadge.innerHTML += `<span><span style="text-decoration:line-through;opacity:0.6">${requested}</span> → <span>${used}</span></span>`;
+      } else {
+        routingBadge.innerHTML += `<span>${used}</span>`;
+      }
+      badgesContainer.appendChild(routingBadge);
+
+      // Trust Gauge Animation
+      updateGauge(trustScore);
+
+      headerWrapper.classList.add('has-result');
+      subtitle.style.display = 'none';
+      resultsPanel.style.display = 'block';
+      
+      setTimeout(() => resultsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
+
+    function updateGauge(score) {
+      const circle = document.getElementById('gaugeFill');
+      const number = document.getElementById('gaugeNumber');
+      const sub = document.getElementById('gaugeSub');
+      const title = document.getElementById('trustTitle');
+      const desc = document.getElementById('trustDesc');
+
+      const circumference = 2 * Math.PI * 40; // 251.2
+      
+      if(score === null) {
+        circle.style.strokeDashoffset = circumference;
+        circle.style.stroke = '#475569';
+        number.textContent = '—';
+        number.style.color = '#475569';
+        sub.style.display = 'none';
+        title.textContent = 'Trust score pending…';
+        desc.textContent = 'The trust engine scores responses asynchronously. The score will appear on your next identical query (served from cache).';
+        return;
+      }
+
+      let color = '#ef4444'; // Red
+      let titleText = 'Low confidence — treat with caution';
+      if(score >= 75) { color = '#10b981'; titleText = 'High factual confidence'; }
+      else if(score >= 45) { color = '#f59e0b'; titleText = 'Moderate confidence — verify key facts'; }
+
+      const progress = ((100 - score) / 100) * circumference;
+      
+      // Animate numbers
+      let currentVis = 0;
+      const timer = setInterval(() => {
+        currentVis += (score / 30);
+        if(currentVis >= score) {
+          currentVis = score;
+          clearInterval(timer);
+        }
+        number.textContent = Math.floor(currentVis);
+      }, 30);
+
+      setTimeout(() => {
+        circle.style.strokeDashoffset = progress;
+        circle.style.stroke = color;
+      }, 50);
+
+      number.style.color = color;
+      sub.style.display = 'block';
+      title.textContent = titleText;
+      desc.textContent = 'Factuality evaluated asynchronously by the NeuralGuard trust engine using a scoring LLM.';
+    }
+  </script>
+</body>
+</html>
