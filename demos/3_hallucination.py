@@ -11,11 +11,11 @@ def run():
     print("In this demo, we are going to intentionally trick the AI into explaining a fake historical event.")
     print("Our background trust engine will analyze its response, grade it, and push the score to your dashboard.\n")
 
-    prompt = "Explain about India winning T20 2026 cricket world cup."
+    prompt = "Explain about  gene therapy injection called KRIYA-839 is being tested."
     print(f"[Request] Asking: '{prompt}'")
     
     response = client.chat.completions.create(
-        model="gemini-2.5-pro",
+        model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}]
     )
     
