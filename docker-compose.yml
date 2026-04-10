@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis/redis-stack:latest
+    ports:
+      - "6379:6379"
+      - "8001:8001"   # RedisInsight UI
+    volumes:
+      - redis_data:/data
+
+  proxy:
+    build:
+      context: ./proxy
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./proxy/.env
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  redis_data:
